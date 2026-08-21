@@ -3,8 +3,7 @@
 Veille économique — Grand Est & Luxembourg
 Secteurs : industrie, ingénierie, énergie
 Thématiques : investissements, levées de fonds, fermetures, licenciements,
-              recrutement, rachats / cessions, sortie d'un nouveau concept / produit,
-              commande reçue
+              recrutement, rachats / cessions
 
 Deux modes d'exécution :
   --mode daily    -> items des dernières 24-48h, format court
@@ -95,6 +94,20 @@ GOOGLE_NEWS_RSS = "https://news.google.com/rss/search?q={query}&hl=fr&gl=FR&ceid
 
 BODACC_API = "https://bodacc-datadila.opendatasoft.com/api/explore/v2.1/catalog/datasets/annonces-commerciales/records"
 
+# Sources spécialisées interrogées via Google News restreint au domaine
+# (site:xxx), sans exigence de zone puisque ces sources sont déjà
+# régionales/locales par nature.
+SOURCES_SPECIALISEES = {
+    "Les Affiches d'Alsace et de Lorraine": "affiches-moniteur.com",
+    "Point Éco Alsace": "pointecoalsace.fr",
+    "Le Journal des Entreprises (Grand Est)": "lejournaldesentreprises.com",
+    "Paperjam (Luxembourg)": "paperjam.lu",
+    "Delano (Luxembourg)": "delano.lu",
+}
+
+# Flux RSS direct de L'essentiel (Luxembourg), rubrique économie.
+LESSENTIEL_RSS = "https://partner-feeds.lessentiel.lu/rss/lessentiel-fr/economie"
+
 # ---------------------------------------------------------------------------
 # Collecte
 # ---------------------------------------------------------------------------
@@ -163,6 +176,58 @@ def fetch_bodacc(since):
     return items
 
 
+def fetch_specialized_source(theme_keywords, domain, source_label, since):
+    """Interroge Google News, restreint à un domaine précis (site:xxx),
+    pour une source spécialisée. Pas d'exigence de zone : ces sources sont
+    déjà régionales par nature (Alsace/Lorraine ou Luxembourg)."""
+    keyword_clause = " OR ".join(f'"{kw}"' for kw in theme_keywords)
+    query = f"site:{domain} ({keyword_clause})"
+    url = GOOGLE_NEWS_RSS.format(query=quote_plus(query))
+
+    items = []
+    try:
+        feed = feedparser.parse(url)
+        for entry in feed.entries:
+            published = _parse_date(entry.get("published"))
+            if published and published < since:
+                continue
+            items.append({
+                "title": entry.get("title", "").strip(),
+                "link": entry.get("link", ""),
+                "source": source_label,
+                "published": published,
+                "summary": _strip_html(entry.get("summary", "")),
+                "zone": "",
+            })
+    except Exception as exc:  # noqa: BLE001
+        print(f"[warn] échec source spécialisée '{source_label}': {exc}", file=sys.stderr)
+
+    return items
+
+
+def fetch_lessentiel(since):
+    """Récupère le flux RSS direct de L'essentiel, rubrique économie."""
+    items = []
+    try:
+        feed = feedparser.parse(LESSENTIEL_RSS)
+        for entry in feed.entries:
+            published = _parse_date(entry.get("published"))
+            if published and published < since:
+                continue
+            items.append({
+                "title": entry.get("title", "").strip(),
+                "link": entry.get("link", ""),
+                "source": "L'essentiel (Luxembourg)",
+                "published": published,
+                "summary": _strip_html(entry.get("summary", "")),
+                "zone": "Luxembourg",
+            })
+    except Exception as exc:  # noqa: BLE001
+        print(f"[warn] échec L'essentiel: {exc}", file=sys.stderr)
+
+    return items
+
+
 def collect(mode):
     """Lance la collecte complète selon le mode (daily/weekly)."""
     now = datetime.now(timezone.utc)
@@ -176,6 +241,13 @@ def collect(mode):
                 item["theme"] = theme
             all_items.extend(found)
 
+        for source_label, domain in SOURCES_SPECIALISEES.items():
+            found = fetch_specialized_source(keywords, domain, source_label, since)
+            for item in found:
+                item["theme"] = theme
+            all_items.extend(found)
+
+    all_items.extend(_tag_theme(fetch_lessentiel(since), "Actualité générale (L'essentiel)"))
     all_items.extend(_tag_theme(fetch_bodacc(since), "Procédures / annonces légales (BODACC)"))
 
     return _dedupe(_filter_sector(all_items))
@@ -332,18 +404,6 @@ def send_email(html_content, mode):
         print(f"[ok] email envoyé à {recipient}")
     except Exception as exc:  # noqa: BLE001 — un échec d'envoi ne doit pas bloquer la publication de la page
         print(f"[warn] échec de l'envoi email: {exc}", file=sys.stderr)
-    subject = "Veille éco Grand Est/Luxembourg — " + ("quotidienne" if mode == "daily" else "récap hebdo")
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = sender
-    msg["To"] = recipient
-    msg.attach(MIMEText(html_content, "html"))
-
-    with smtplib.SMTP(smtp_host, smtp_port) as server:
-        server.starttls()
-        server.login(smtp_user, smtp_password)
-        server.sendmail(sender, [recipient], msg.as_string())
-    print(f"[ok] email envoyé à {recipient}")
 
 
 # ---------------------------------------------------------------------------

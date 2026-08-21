@@ -303,6 +303,21 @@ def send_email(html_content, mode):
     msg["To"] = recipient
     msg.attach(MIMEText(html_content, "html"))
 
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_password)
+            server.sendmail(sender, [recipient], msg.as_string())
+        print(f"[ok] email envoyé à {recipient}")
+    except Exception as exc:  # noqa: BLE001 — un échec d'envoi ne doit pas bloquer la publication de la page
+        print(f"[warn] échec de l'envoi email: {exc}", file=sys.stderr)
+    subject = "Veille éco Grand Est/Luxembourg — " + ("quotidienne" if mode == "daily" else "récap hebdo")
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = sender
+    msg["To"] = recipient
+    msg.attach(MIMEText(html_content, "html"))
+
     with smtplib.SMTP(smtp_host, smtp_port) as server:
         server.starttls()
         server.login(smtp_user, smtp_password)

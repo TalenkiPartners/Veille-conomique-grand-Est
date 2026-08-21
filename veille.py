@@ -3,7 +3,8 @@
 Veille économique — Grand Est & Luxembourg
 Secteurs : industrie, ingénierie, énergie
 Thématiques : investissements, levées de fonds, fermetures, licenciements,
-              recrutement, rachats / cessions
+              recrutement, rachats / cessions, sortie d'un nouveau concept / produit,
+              commande reçue
 
 Deux modes d'exécution :
   --mode daily    -> items des dernières 24-48h, format court
@@ -48,10 +49,30 @@ ZONES = [
     "Marne",
     "Ardennes",
     "Luxembourg",
+    "Metz",
+    "Nancy",
+    "Strasbourg",
+    "Mulhouse",
+    "Colmar",
+    "Reims",
+    "Troyes",
+    "Charleville-Mézières",
+    "Épinal",
+    "Thionville",
+    "Forbach",
+    "Sarreguemines",
+    "Verdun",
+    "Châlons-en-Champagne",
+    "Luxembourg",
+    "Franche-Comté",
+    "Bourgogne",
+    "Belfort",
+    "Dijon",
+    "Montbéliard",
 ]
 
 # Départements du Grand Est pour le filtrage BODACC (codes INSEE).
-DEPARTEMENTS_GRAND_EST = ["08", "10", "51", "52", "54", "55", "57", "67", "68", "88"]
+DEPARTEMENTS_GRAND_EST = ["08", "10", "51", "52", "54", "55", "57", "67", "68", "88", "25", "90","70", "21"]
 
 # Thématiques suivies. Chaque valeur est une liste de synonymes/variantes
 # combinés en OR dans la requête.
